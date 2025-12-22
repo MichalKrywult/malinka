@@ -60,15 +60,16 @@ async def kostka(ctx):
 
 
 @bot.command()
-async def awatar(ctx):
+async def awatar(ctx,member: discord.Member | None = None):
+    user = member or ctx.author
     embed = create_embed(
-        f"Awatar użytkownika {ctx.author.name}",
+        f"Awatar użytkownika {user}",
         "Oto Twój aktualny awatar:",
-        discord.Color.gold(),
+        discord.Color.green(),
         "System wizualizacji"
     )
 
-    embed.set_image(url=ctx.author.display_avatar.url)
+    embed.set_image(url=user.display_avatar.url)
     await ctx.send(embed=embed)
 
 
