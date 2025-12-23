@@ -71,7 +71,7 @@ async def awatar(ctx,member: discord.Member | None = None):
     user = member or ctx.author
     embed = create_embed(
         f"Awatar użytkownika {user}",
-        "Oto Twój aktualny awatar:",
+        "Aktualny awatar:",
         discord.Color.green(),
         ""
     )
@@ -91,7 +91,7 @@ async def help(ctx):
         lista_komend += f"**!{command.name}** - {opis}\n"
 
     embed = create_embed(
-        title="Komendy bota",
+        title="Komendy bota:",
         description=lista_komend,
         color=discord.Color.blue(),
         footer=""
@@ -99,7 +99,7 @@ async def help(ctx):
     
     await ctx.send(embed=embed)
 
-GRACZE = "gracze.json"
+GRACZE = "discord_bot/gracze.json"
 def laduj_graczy():
     if not os.path.exists(GRACZE):
         return {}
@@ -137,25 +137,23 @@ async def rank(ctx, *, cel: str):
     cel_lower = cel.lower().strip()
     nick_z_tagiem = cel
 
-    # Obsługa pingu
+    #  Obsługa pingu
     if ctx.message.mentions:
         user_id = str(ctx.message.mentions[0].id)
         if user_id in gracze:
             nick_z_tagiem = gracze[user_id]
         else:
-            await ctx.send("Ten użytkownik nie ma przypisanego konta. Użyj: `!dodaj @ping Nick#Tag`.")
+            await ctx.send("Brak przypisanego konta. Użyj: `!dodaj @ping Nick#Tag`.")
             return
-
-    # Obsługa aliasu 
+    #  Obsługa aliasu 
     elif cel_lower in gracze:
         nick_z_tagiem = gracze[cel_lower]
 
-    # walidacja formatu
+    #  Walidacja formatu
     if "#" not in nick_z_tagiem:
-        await ctx.send("Nie znam tego gracza. Użyj `!dodaj` lub podaj `Nick#Tag`.")
+        await ctx.send("Nieznany gracz. Użyj `!dodaj` lub podaj `Nick#Tag`.")
         return
 
-    # Przygotowanie URL
     name_tag = nick_z_tagiem.replace("#", "-")
     url = f"https://www.op.gg/lol/summoners/eune/{name_tag}"
     
@@ -174,57 +172,63 @@ async def rank(ctx, *, cel: str):
                 html = await response.text()
                 soup = BeautifulSoup(html, 'html.parser')
 
-                #bezpiecznye szukanie tekstu
                 all_spans = soup.find_all("span")
                 lp_span = None
                 wr_text = "Brak danych"
 
                 for s in all_spans:
                     txt = s.get_text()
-                    if txt:  # Zabezpieczenie przed None/Empty
-                        if "LP" in txt and not lp_span:
-                            lp_span = s
-                        if "Win rate" in txt:
-                            wr_text = txt.strip()
+                    if txt and "LP" in txt:
+                        lp_span = s
+                        break 
 
                 if lp_span:
-                    # Szuka nazwy rangi (strong)
-                    parent_container = lp_span.find_parent("div")
-                    tier_element = None
-                    if parent_container:
-                        tier_element = parent_container.find("strong")
-                    
-                    tier_text = tier_element.get_text(strip=True) if tier_element else "UNRANKED"
                     lp_text = lp_span.get_text(strip=True)
+                    
+                    # Szuka nazwy rangi (strong) w pobliżu LP
+                    tier_text = "RANKED"
+                    parent_div = lp_span.find_parent("div")
+                    if parent_div:
+                        tier_el = parent_div.find("strong")
+                        if tier_el:
+                            tier_text = tier_el.get_text(strip=True)
+
+                    # SZUKANIE WIN RATE
+                    # Szuka w szerszym otoczeniu LP (idzie 3 poziomy w górę, by złapać cały boczny panel)
+                    wr_text = "Brak danych"
+                    context_area = lp_span.find_parent("div")
+                    for _ in range(3):
+                        if context_area:
+                            # Sprawdza czy w tym kontenerze jest winrate
+                            found_wr = False
+                            for s in context_area.find_all("span"):
+                                itxt = s.get_text()
+                                if itxt and "Win rate" in itxt:
+                                    wr_text = itxt.strip()
+                                    found_wr = True
+                                    break
+                            if found_wr:
+                                break
+                            context_area = context_area.find_parent("div")
 
                     embed = create_embed(
                         title=f"Profil LoL: {nick_z_tagiem}",
-                        description=f"**{tier_text.upper()}**\n**{lp_text}**\n{wr_text}",
+                        description=f"**{tier_text.upper()}**\n **{lp_text}**\n{wr_text}",
                         color=discord.Color.blue(),
                         footer="Dane pobrane z OP.GG"
                     )
 
-                    # BEZPIECZNE SZUKANIE OBRAZKA 
-                    all_imgs = soup.find_all("img")
-                    for img in all_imgs:
+                    for img in soup.find_all("img"):
                         src = img.get('src')
-                        # Type Guard: sprawdza czy src to string
-                        if isinstance(src, str):
-                            if "medals_new" in src:
-                                # Startswith na bezpiecznym stringu
-                                if src.startswith('http'):
-                                    final_img_url = src
-                                else:
-                                    final_img_url = f"https:{src}"
-                                
-                                embed.set_thumbnail(url=final_img_url)
-                                break
+                        if isinstance(src, str) and "medals_new" in src:
+                            final_img_url = src if src.startswith('http') else f"https:{src}"
+                            embed.set_thumbnail(url=final_img_url)
+                            break
                     await ctx.send(embed=embed)
-                else:
-                    await ctx.send(f"Gracz **{nick_z_tagiem}** został znaleziony, ale nie posiada rangi (unranked).")
+
     except Exception as e:
         print(f"Błąd bota: {e}")
-        await ctx.send("Wystąpił błąd podczas analizy strony OP.GG.")
+        await ctx.send("Wystąpił błąd podczas analizy strony.")
 
 if TOKEN is None:
     print("Brak tokena w pliku .env")
