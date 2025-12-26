@@ -229,7 +229,71 @@ async def rank(ctx, *, cel: str):
     except Exception as e:
         print(f"Błąd bota: {e}")
         await ctx.send("Wystąpił błąd podczas analizy strony.")
+@bot.command()
+async def mastery(ctx, *, cel: str):
+    """Pokazuje 3 najlepszych championów gracza na podstawie OP.GG"""
+    gracze = laduj_graczy()
+    cel_lower = cel.lower().strip()
+    nick_z_tagiem = cel
 
+    if ctx.message.mentions:
+        user_id = str(ctx.message.mentions[0].id)
+        nick_z_tagiem = gracze.get(user_id, cel)
+    elif cel_lower in gracze:
+        nick_z_tagiem = gracze[cel_lower]
+
+    if "#" not in nick_z_tagiem:
+        await ctx.send("Podaj `Nick#Tag` lub dodaj gracza.")
+        return
+
+    name_tag = nick_z_tagiem.replace("#", "-")
+    url = f"https://www.op.gg/lol/summoners/eune/{name_tag}/mastery"
+    
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+
+    try:
+        async with aiohttp.ClientSession(headers=headers) as session:
+            async with session.get(url) as response:
+                html = await response.text()
+                soup = BeautifulSoup(html, 'html.parser')
+
+                # Kluczowe: Szukamy tylko divów, które są kafelkami postaci
+                containers = soup.find_all("div", attrs={"data-tooltip-id": "opgg-tooltip"})
+                
+                mastery_list = []
+                for container in containers:
+                    name_el = container.find("span", class_="text-gray-900")
+                    if name_el:
+                        name = name_el.get_text(strip=True)
+                        # Ignorujemy techniczne napisy OP.GG
+                        if "Link" in name or "Total" in name:
+                            continue
+                            
+                        points_el = container.find("span", class_="text-gray-500")
+                        level_el = container.find("span", class_="text-2xs")
+                        
+                        pts = points_el.get_text(strip=True).replace('\xa0', ' ') if points_el else "?"
+                        lvl = level_el.get_text(strip=True) if level_el else "?"
+                        
+                        mastery_list.append(f"{len(mastery_list)+1}. **{name}** (Lvl {lvl}) — `{pts} pkt`")
+                    
+                    if len(mastery_list) >= 3:
+                        break
+
+                if mastery_list:
+                    embed = create_embed(
+                        f"TOP Mastery: {nick_z_tagiem}",
+                        "\n".join(mastery_list),
+                        discord.Color.purple(),
+                        "Dane: OP.GG"
+                    )
+                    await ctx.send(embed=embed)
+                else:
+                    await ctx.send("Nie udało się znaleźć danych o bohaterach.")
+
+    except Exception as e:
+        print(f"Błąd mastery: {e}")
+        await ctx.send("Wystąpił błąd podczas analizy strony.")
 if TOKEN is None:
     print("Brak tokena w pliku .env")
 else:
