@@ -1,11 +1,13 @@
 import json
 import os
 import random
+import sqlite3
+import time
 
 import aiohttp
 import discord
 from bs4 import BeautifulSoup
-from discord.ext import commands
+from discord.ext import commands, tasks
 from dotenv import load_dotenv
 
 
@@ -21,15 +23,22 @@ def create_embed(title, description, color, footer):
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR,"reminder", "data", "reminder.db")
+GRACZE = "discord_bot/gracze.json"
 
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix='!', intents=intents, help_command=None)
 
+if not os.path.exists(os.path.join(BASE_DIR, "reminder","data")):
+    os.makedirs(os.path.join(BASE_DIR,"reminder" ,"data"))
 
 @bot.event
 async def on_ready():
     print(f'Zalogowano jako {bot.user}')
+    if not check_reminder.is_running():
+        check_reminder.start()
 
 
 @bot.event
@@ -99,7 +108,7 @@ async def help(ctx):
     
     await ctx.send(embed=embed)
 
-GRACZE = "discord_bot/gracze.json"
+
 def laduj_graczy():
     if not os.path.exists(GRACZE):
         return {}
@@ -193,7 +202,7 @@ async def rank(ctx, *, cel: str):
                         if tier_el:
                             tier_text = tier_el.get_text(strip=True)
 
-                    # SZUKANIE WIN RATE
+
                     # Szuka w szerszym otoczeniu LP (idzie 3 poziomy w górę, by złapać cały boczny panel)
                     wr_text = "Brak danych"
                     context_area = lp_span.find_parent("div")
@@ -229,9 +238,12 @@ async def rank(ctx, *, cel: str):
     except Exception as e:
         print(f"Błąd bota: {e}")
         await ctx.send("Wystąpił błąd podczas analizy strony.")
+
 @bot.command()
 async def mastery(ctx, *, cel: str):
-   
+    """
+    Pokazuje masterie dla danego gracza - top3 postacie
+    """
     gracze = laduj_graczy()
     cel_lower = cel.lower().strip()
     nick_z_tagiem = cel
@@ -294,6 +306,46 @@ async def mastery(ctx, *, cel: str):
     except Exception as e:
         print(f"Błąd mastery: {e}")
         await ctx.send("Wystąpił błąd podczas analizy strony.")
+
+@bot.command()
+async def przypomnij(ctx, czas: int, *, tresc: str):
+    user_id = ctx.author.id
+    remind_at = int(time.time()) + (czas * 60)
+    
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO reminder (user_id, content, remind_at) VALUES (?, ?, ?)", 
+                   (user_id, tresc, remind_at))
+    conn.commit()
+    conn.close()
+    
+    await ctx.send(f"Zapisane, przypomnienie przyjdzie za {czas} min.")
+
+@tasks.loop(seconds=60)
+async def check_reminder():
+    now = int(time.time())
+
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    #przypomnienia które maja czas mniejszy lub rowny od teraz
+    cursor.execute("SELECT id, user_id, content FROM reminder WHERE remind_at <= ? AND is_sent = 0", (now,))
+    pending = cursor.fetchall()
+    
+    for rem_id, user_id, content in pending:
+        #proba wyslania
+        user = await bot.fetch_user(user_id)
+        if user:
+            try:
+                await user.send(f"**PRZYPOMNIENIE:** \n{content}")
+                # jak wyslane to odznacz na poprawne
+                cursor.execute("UPDATE reminder SET is_sent = 1 WHERE id = ?", (rem_id,))
+                print(f"Wysłano przypomnienie do {user_id}")
+            except Exception as e:
+                print(f"Nie udało się wysłać wiadomości do {user_id}: {e}")
+    
+    conn.commit()
+    conn.close()
 
 if TOKEN is None:
     print("Brak tokena w pliku .env")

@@ -2,4 +2,4 @@
 .env
 .vscode/
 discord_bot/gracze.json
-reminder/
+discord_bot/reminder/data
