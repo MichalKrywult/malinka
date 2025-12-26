@@ -132,62 +132,6 @@ async def on_command_error(ctx, error):
     if isinstance(error, commands.CommandNotFound):
         await ctx.send("Nieznana komenda")
 
-# Commands
-@bot.tree.command(name="przypomnij", description="Otwiera okno dodawania przypomnienia")
-async def przypomnij(interaction: discord.Interaction):
-    await interaction.response.send_modal(ReminderModal())
-
-@bot.command(hidden=True)
-async def czesc(ctx):
-    await ctx.send(f'Hej {ctx.author.name}!')
-
-@bot.command()
-async def kostka(ctx):
-    """Rzut kostka K6"""
-    wynik = random.randint(1, 6)
-    wybrany_kolor = discord.Color.green() if wynik % 2 == 0 else discord.Color.red()
-
-    embed = create_embed(
-        "Rzut kostką K6",
-        f"Wyrzuciłeś: **{wynik}**",
-        wybrany_kolor,
-        f"Wywołane przez {ctx.author.name}"
-    )
-
-    await ctx.send(embed=embed)
-
-@bot.command()
-async def awatar(ctx,member: discord.Member | None = None):
-    """Daje awatar po !awatar @uzytkownik \n dla samego !awatar daje awatar autora"""
-    user = member or ctx.author
-    embed = create_embed(
-        f"Awatar użytkownika {user}",
-        "Aktualny awatar:",
-        discord.Color.green(),
-        ""
-    )
-    embed.set_image(url=user.display_avatar.url)
-    await ctx.send(embed=embed)
-
-@bot.command(hidden=True)
-async def help(ctx):
-    lista_komend = ""
-    
-    for command in bot.commands:
-        if command.hidden:
-            continue
-        opis = command.help if command.help else "Brak opisu"
-        lista_komend += f"**!{command.name}** - {opis}\n"
-
-    embed = create_embed(
-        title="Komendy bota:",
-        description=lista_komend,
-        color=discord.Color.blue(),
-        footer=""
-    )
-    
-    await ctx.send(embed=embed)
-
 # Manage players
 def laduj_graczy():
     if not os.path.exists(GRACZE):
@@ -199,26 +143,7 @@ def zapisz_graczy(dane):
     with open(GRACZE, "w", encoding="utf-8") as f:
         json.dump(dane, f, indent=4, ensure_ascii=False)
 
-@bot.command()
-async def dodaj(ctx, alias: str, nick_z_tagiem: str):
-    """Dodaje gracza do bazy. Użycie: !dodaj franek Nick#Tag lub !dodaj @ping Nick#Tag"""
-    if "#" not in nick_z_tagiem:
-        await ctx.send("Błąd: Nick musi zawierać tag (np. Nick#EUNE)")
-        return
-    
-    gracze = laduj_graczy()
-    
-    # Handle mention-based user ID as key
-    if ctx.message.mentions:
-        klucz = str(ctx.message.mentions[0].id)
-    else:
-        klucz = alias.lower()
-
-    gracze[klucz] = nick_z_tagiem
-    zapisz_graczy(gracze)
-    
-    await ctx.send(f"Powiązano **{alias}** z kontem **{nick_z_tagiem}**!")
-
+# --- FUNKCJE LOGICZNE ---
 
 async def get_rank(cel: str, mentions=None):
     gracze = laduj_graczy()
@@ -296,30 +221,6 @@ async def get_rank(cel: str, mentions=None):
         print(f"Błąd logiki rank: {e}")
         return "Wystąpił błąd podczas analizy strony OP.GG."
 
-# komenda tekstowa !
-@bot.command(name="rank")
-async def rank_text(ctx, *, cel: str):
-    """Sprawdza rangę (komenda tekstowa)"""
-    wynik = await get_rank(cel, ctx.message.mentions)
-    if isinstance(wynik, discord.Embed):
-        await ctx.send(embed=wynik)
-    else:
-        await ctx.send(wynik)
-
-# komenda slash /
-@bot.tree.command(name="rank", description="Sprawdza rangę gracza na OP.GG")
-async def rank_slash(interaction: discord.Interaction, cel: str):
-    """Sprawdza rangę (komenda slash)"""
-    # Defer potrzebny przy scrapowaniu, bo trwa ono zazwyczaj > 3 sekundy a taki jest limit na dc
-    await interaction.response.defer()
-    
-    wynik = await get_rank(cel)
-    
-    if isinstance(wynik, discord.Embed):
-        await interaction.followup.send(embed=wynik)
-    else:
-        await interaction.followup.send(wynik)
-
 async def get_mastery(cel: str, mentions=None):
     """Główny silnik scrapujący mastery z OP.GG"""
     gracze = laduj_graczy()
@@ -385,74 +286,31 @@ async def get_mastery(cel: str, mentions=None):
         print(f"Błąd mastery: {e}")
         return "Wystąpił błąd podczas analizy strony mastery."
 
+# --- KOMENDY ---
 
+@bot.tree.command(name="przypomnij", description="Otwiera okno dodawania przypomnienia")
+async def przypomnij(interaction: discord.Interaction):
+    await interaction.response.send_modal(ReminderModal())
 
-@bot.command()
-async def mastery(ctx, *, cel: str):
-    """Pokazuje masterie dla danego gracza - top3 postacie"""
-    gracze = laduj_graczy()
-    cel_lower = cel.lower().strip()
-    nick_z_tagiem = cel
+@bot.command(name="rank")
+async def rank_text(ctx, *, cel: str):
+    """Sprawdza rangę (komenda tekstowa)"""
+    wynik = await get_rank(cel, ctx.message.mentions)
+    if isinstance(wynik, discord.Embed):
+        await ctx.send(embed=wynik)
+    else:
+        await ctx.send(wynik)
 
-    if ctx.message.mentions:
-        user_id = str(ctx.message.mentions[0].id)
-        nick_z_tagiem = gracze.get(user_id, cel)
-    elif cel_lower in gracze:
-        nick_z_tagiem = gracze[cel_lower]
+@bot.tree.command(name="rank", description="Sprawdza rangę gracza na OP.GG")
+async def rank_slash(interaction: discord.Interaction, cel: str):
+    """Sprawdza rangę (komenda slash)"""
+    await interaction.response.defer()
+    wynik = await get_rank(cel)
+    if isinstance(wynik, discord.Embed):
+        await interaction.followup.send(embed=wynik)
+    else:
+        await interaction.followup.send(wynik)
 
-    if "#" not in nick_z_tagiem:
-        await ctx.send("Podaj `Nick#Tag` lub dodaj gracza.")
-        return
-
-    name_tag = nick_z_tagiem.replace("#", "-")
-    url = f"https://www.op.gg/lol/summoners/eune/{name_tag}/mastery"
-    
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
-
-    try:
-        async with aiohttp.ClientSession(headers=headers) as session:
-            async with session.get(url) as response:
-                html = await response.text()
-                soup = BeautifulSoup(html, 'html.parser')
-
-                # Find mastery containers
-                containers = soup.find_all("div", attrs={"data-tooltip-id": "opgg-tooltip"})
-                
-                mastery_list = []
-                for container in containers:
-                    name_el = container.find("span", class_="text-gray-900")
-                    if name_el:
-                        name = name_el.get_text(strip=True)
-                        if "Link" in name or "Total" in name:  # Ignore technical text
-                            continue
-                        
-                        points_el = container.find("span", class_="text-gray-500")
-                        level_el = container.find("span", class_="text-2xs")
-                        
-                        pts = points_el.get_text(strip=True).replace('\xa0', ' ') if points_el else "?"
-                        lvl = level_el.get_text(strip=True) if level_el else "?"
-                        
-                        mastery_list.append(f"{len(mastery_list)+1}. **{name}** (Lvl {lvl}) — `{pts} pkt`")
-                    
-                    if len(mastery_list) >= 3:
-                        break
-
-                if mastery_list:
-                    embed = create_embed(
-                        f"TOP Mastery: {nick_z_tagiem}",
-                        "\n".join(mastery_list),
-                        discord.Color.purple(),
-                        "Dane: OP.GG"
-                    )
-                    await ctx.send(embed=embed)
-                else:
-                    await ctx.send("Nie udało się znaleźć danych o bohaterach.")
-
-    except Exception as e:
-        print(f"Błąd mastery: {e}")
-        await ctx.send("Wystąpił błąd podczas analizy strony.")
-
-# koemnda tekstowa !
 @bot.command(name="mastery")
 async def mastery_text(ctx, *, cel: str):
     """Pokazuje TOP 3 postacie (tekstowo)"""
@@ -462,61 +320,77 @@ async def mastery_text(ctx, *, cel: str):
     else:
         await ctx.send(wynik)
 
-# koemenda slash /
 @bot.tree.command(name="mastery", description="Pokazuje 3 postacie z największym poziomem maestrii")
 async def mastery_slash(interaction: discord.Interaction, cel: str):
     """Pokazuje TOP 3 postacie (slash command)"""
-    await interaction.response.defer() # Czekaj na scrapowanie
+    await interaction.response.defer() 
     wynik = await get_mastery(cel)
-    
     if isinstance(wynik, discord.Embed):
         await interaction.followup.send(embed=wynik)
     else:
         await interaction.followup.send(wynik)
 
 @bot.command()
-async def remind(ctx, czas: int, *, tresc: str):
-    """Ustaw przypomnienie"""
-    user_id = ctx.author.id
-    remind_at = int(time.time()) + (czas * 60)
-    
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO reminder (user_id, content, remind_at) VALUES (?, ?, ?)", 
-                   (user_id, tresc, remind_at))
-    conn.commit()
-    conn.close()
-    
-    await ctx.send("Zapisane")
+async def dodaj(ctx, alias: str, nick_z_tagiem: str):
+    """Dodaje gracza do bazy. Użycie: !dodaj franek Nick#Tag lub !dodaj @ping Nick#Tag"""
+    if "#" not in nick_z_tagiem:
+        await ctx.send("Błąd: Nick musi zawierać tag (np. Nick#EUNE)")
+        return
+    gracze = laduj_graczy()
+    if ctx.message.mentions:
+        klucz = str(ctx.message.mentions[0].id)
+    else:
+        klucz = alias.lower()
+    gracze[klucz] = nick_z_tagiem
+    zapisz_graczy(gracze)
+    await ctx.send(f"Powiązano **{alias}** z kontem **{nick_z_tagiem}**!")
 
-# Task to check for reminders and send them when the time comes
+@bot.command()
+async def kostka(ctx):
+    """Rzut kostka K6"""
+    wynik = random.randint(1, 6)
+    wybrany_kolor = discord.Color.green() if wynik % 2 == 0 else discord.Color.red()
+    embed = create_embed(
+        "Rzut kostką K6",
+        f"Wyrzuciłeś: **{wynik}**",
+        wybrany_kolor,
+        f"Wywołane przez {ctx.author.name}"
+    )
+    await ctx.send(embed=embed)
+
+@bot.command()
+async def awatar(ctx,member: discord.Member | None = None):
+    """Daje awatar po !awatar @uzytkownik \n dla samego !awatar daje awatar autora"""
+    user = member or ctx.author
+    embed = create_embed(
+        f"Awatar użytkownika {user}",
+        "Aktualny awatar:",
+        discord.Color.green(),
+        ""
+    )
+    embed.set_image(url=user.display_avatar.url)
+    await ctx.send(embed=embed)
+
+# --- TASKS ---
+
 @tasks.loop(seconds=60)
 async def check_reminder():
     now = int(time.time())
-
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    
-    # Select reminders that need to be sent
     cursor.execute("SELECT id, user_id, content FROM reminder WHERE remind_at <= ? AND is_sent = 0", (now,))
     pending = cursor.fetchall()
-    
     for rem_id, user_id, content in pending:
-        # Attempt to send reminder
         user = await bot.fetch_user(user_id)
         if user:
             try:
-                await user.send(f"**PRZYPOMNIENIE:** \n{content}")
-                # Mark the reminder as sent
+                await user.send(f"{content}")
                 cursor.execute("UPDATE reminder SET is_sent = 1 WHERE id = ?", (rem_id,))
-                print(f"Wysłano przypomnienie do {user_id}")
             except Exception as e:
                 print(f"Nie udało się wysłać wiadomości do {user_id}: {e}")
-    
     conn.commit()
     conn.close()
 
-# Run the bot
 if TOKEN is None:
     print("Brak tokena w pliku .env")
 else:
