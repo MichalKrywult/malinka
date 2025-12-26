@@ -231,7 +231,7 @@ async def rank(ctx, *, cel: str):
         await ctx.send("Wystąpił błąd podczas analizy strony.")
 @bot.command()
 async def mastery(ctx, *, cel: str):
-    """Pokazuje 3 najlepszych championów gracza na podstawie OP.GG"""
+   
     gracze = laduj_graczy()
     cel_lower = cel.lower().strip()
     nick_z_tagiem = cel
@@ -257,7 +257,7 @@ async def mastery(ctx, *, cel: str):
                 html = await response.text()
                 soup = BeautifulSoup(html, 'html.parser')
 
-                # Kluczowe: Szukamy tylko divów, które są kafelkami postaci
+                # Szuka tylko divów, które są kafelkami postaci
                 containers = soup.find_all("div", attrs={"data-tooltip-id": "opgg-tooltip"})
                 
                 mastery_list = []
@@ -265,7 +265,7 @@ async def mastery(ctx, *, cel: str):
                     name_el = container.find("span", class_="text-gray-900")
                     if name_el:
                         name = name_el.get_text(strip=True)
-                        # Ignorujemy techniczne napisy OP.GG
+                        # Ignoruje inne napisy (takie techiczne)
                         if "Link" in name or "Total" in name:
                             continue
                             
@@ -294,6 +294,7 @@ async def mastery(ctx, *, cel: str):
     except Exception as e:
         print(f"Błąd mastery: {e}")
         await ctx.send("Wystąpił błąd podczas analizy strony.")
+
 if TOKEN is None:
     print("Brak tokena w pliku .env")
 else:
