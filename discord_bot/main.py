@@ -72,8 +72,13 @@ class MyBot(commands.Bot):
                 print(f"Nie udało się załadować {cog}: {e}")
         
         # Synchronizacja komend Slash (drzewa komend)
-        await self.tree.sync()
-        print("Komendy zsynchronizowane.")
+        synch=0
+        
+        if synch==1:
+            await self.tree.sync()
+            print("Komendy zsynchronizowane.")
+        else:
+            print("Komendy NIE zsynchronizowane.")
 
     async def on_ready(self):
         # Zabezpieczenie na wypadek, gdyby user nie był jeszcze załadowany
