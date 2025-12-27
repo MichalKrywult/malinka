@@ -29,7 +29,7 @@ class General(commands.Cog):
         embed.set_image(url=user.display_avatar.url)
         await ctx.send(embed=embed)
     
-    @commands.command(name="help")
+    @commands.hybrid_command(name="help")
     async def help(self, ctx):
         """Wyświetla listę dostępnych komend"""
         embed = discord.Embed(
@@ -53,6 +53,7 @@ class General(commands.Cog):
                 embed.add_field(name=f"Kategoria: {name}", value=commands_list, inline=False)
 
         await ctx.send(embed=embed)
+
 
 async def setup(bot):
     await bot.add_cog(General(bot))

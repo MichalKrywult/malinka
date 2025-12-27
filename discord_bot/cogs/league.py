@@ -38,8 +38,7 @@ class League(commands.Cog):
             return self.gracze[target_lower]
         return target
 
-    # --- Komendy ---
-
+    
     @commands.command()
     async def dodaj(self, ctx, alias: str, nick_z_tagiem: str):
         if "#" not in nick_z_tagiem:
@@ -51,9 +50,10 @@ class League(commands.Cog):
         self.save_gracze()
         await ctx.send(f"Zapisano: {alias} -> {nick_z_tagiem}")
 
+    #KOMENDA RANK
     @commands.hybrid_command(name="rank", description="Sprawdza rangę gracza na OP.GG")
     async def rank(self, ctx, cel: str):
-        """Sprawdza rangę (wyświetla dywizję, LP i ikonę)."""
+        """Sprawdza rangę w Lidze"""
         # Defer informuje Discorda, że odpowiedź zajmie chwilę (ważne dla Slash)
         await ctx.defer()
         logger.info(f"Użytkownik {ctx.author} sprawdza rangę: {cel}")
@@ -90,7 +90,7 @@ class League(commands.Cog):
     # KOMENDA MASTERY
     @commands.hybrid_command(name="mastery", description="Pokazuje TOP 3 postacie pod względem punktów maestrii")
     async def mastery(self, ctx, cel: str):
-        """Pokazuje TOP 3 postacie pod względem punktów maestrii."""
+        """Pokazuje TOP 3 postacie pod względem punktów maestrii"""
         await ctx.defer()
         logger.info(f"Użytkownik {ctx.author} sprawdza masterie: {cel}")
 

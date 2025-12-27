@@ -73,7 +73,6 @@ class MyBot(commands.Bot):
         
         # Synchronizacja komend Slash (drzewa komend)
         synch=0
-        
         if synch==1:
             await self.tree.sync()
             print("Komendy zsynchronizowane.")

@@ -19,5 +19,12 @@ class DBManager:
             remind_at INTEGER NOT NULL,
             is_sent INTEGER DEFAULT 0
         )''')
+       
+        cursor.execute('''CREATE TABLE IF NOT EXISTS league_profiles (
+        user_id TEXT,             
+        riot_id TEXT NOT NULL,
+        alias TEXT UNIQUE,        
+        UNIQUE(user_id)           
+        )''')
         conn.commit()
         conn.close()
