@@ -11,7 +11,7 @@
 ## Struktura
 - `cogs/`: Logika komend podzielona na kategorie (General, League, Reminders).
 - `database/`: Zarządzanie bazą danych SQLite.
-- `utils/`: Silnik scrapujący dane z serwisów zewnętrznych.
+- `utils/`: Scrapowanie danych, wysyłanie wiadomosci przez API telegrama, funkcje typu różne potrzebne.
 - `data/`: Folder na bazę danych `reminder.db` oraz plik `gracze.json`.
 
 ## Instalacja na Linuxie 
