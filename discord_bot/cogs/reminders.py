@@ -1,3 +1,4 @@
+import os
 import sqlite3
 import time
 from datetime import datetime
@@ -5,7 +6,9 @@ from datetime import datetime
 import discord
 from discord import app_commands, ui
 from discord.ext import commands, tasks
+from utils.telegram_notifier import send_telegram_msg
 
+OWNER_DISCORD_ID = os.getenv('OWNER_DISCORD_ID')
 
 class ReminderModal(ui.Modal, title='Dodaj Przypomnienie'):
     data_input = ui.TextInput(label='Dzień i Miesiąc', placeholder='DD.MM', min_length=5, max_length=5, default=datetime.now().strftime("%d.%m"))
@@ -68,6 +71,11 @@ class Reminders(commands.Cog):
                     try:
                         await user.send(f"**Przypomnienie:** {content}")
                         cursor.execute("UPDATE reminder SET is_sent = 1 WHERE id = ?", (rem_id,))
+                        if str(user_id)==str(OWNER_DISCORD_ID):
+                            try:
+                                await send_telegram_msg(content)
+                            except Exception as e:
+                                print(f"Nie udane wysłanie na Telegrama {e}")
                     except Exception as e:
                         print(f"Błąd wysyłania DM: {e}")
             conn.commit()
