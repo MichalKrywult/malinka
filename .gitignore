@@ -1,5 +1,13 @@
-.venv/
+#python
+__pycache__/
+__init__.py
+*.py[cod]
+#env and data
 .env
+data/
+test.py
+# Virtual Environment
+venv/
+env/
+.venv/
 .vscode/
-discord_bot/gracze.json
-discord_bot/reminder/data
