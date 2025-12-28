@@ -15,7 +15,6 @@ from dotenv import load_dotenv
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 DB_PATH = os.path.join(DATA_DIR, "reminder.db")
-GRACZE_PATH = os.path.join(DATA_DIR, "gracze.json")
 
 logger = logging.getLogger('discord_bot')
 logger.setLevel(logging.INFO)
@@ -43,7 +42,7 @@ load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 
 # Setup bota
-intents = discord.Intents.default()
+intents = discord.Intents.all()
 intents.message_content = True
 
 class MyBot(commands.Bot):
@@ -52,10 +51,11 @@ class MyBot(commands.Bot):
         # Przekazujemy config do bota, żeby Cogi miały do niego dostęp
         self.config = {
             'BASE_DIR': BASE_DIR,
-            'DB_PATH': DB_PATH,
-            'GRACZE_PATH': GRACZE_PATH
+            'DB_PATH': DB_PATH
         }
 
+        self.db = DBManager(DB_PATH)
+        self.db.initialize_db()
     async def setup_hook(self):
         """Metoda uruchamiana przy starcie, do ładowania rozszerzeń."""
         # Inicjalizacja DB

@@ -21,10 +21,15 @@ class DBManager:
         )''')
        
         cursor.execute('''CREATE TABLE IF NOT EXISTS league_profiles (
-        user_id TEXT,             
-        riot_id TEXT NOT NULL,
-        alias TEXT UNIQUE,        
-        UNIQUE(user_id)           
+        user_id TEXT PRIMARY KEY,
+        riot_id TEXT NOT NULL
         )''')
+
+        cursor.execute('''CREATE TABLE IF NOT EXISTS league_aliases (
+        alias TEXT PRIMARY KEY,
+        user_id TEXT,
+        FOREIGN KEY (user_id) REFERENCES league_profiles(user_id) ON DELETE CASCADE
+        )''')
+
         conn.commit()
         conn.close()

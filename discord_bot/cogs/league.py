@@ -1,10 +1,8 @@
-import json
 import logging
-import os
 
 import discord
 from discord.ext import commands
-from utils.leauge_scraper import (  # pyright: ignore[reportMissingImports] 
+from utils.leauge_scraper import (
     fetch_mastery_data,
     fetch_rank_data,
 )
@@ -12,43 +10,124 @@ from utils.leauge_scraper import (  # pyright: ignore[reportMissingImports]
 logger = logging.getLogger('discord_bot')
 
 class League(commands.Cog):
-    def __init__(self, bot, gracze_path):
+    def __init__(self, bot,db_manager):
         self.bot = bot
-        self.gracze_path = gracze_path
-        self.gracze = self.load_gracze()
-
-    def load_gracze(self):
-        if not os.path.exists(self.gracze_path):
-            return {}
-        with open(self.gracze_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-
-    def save_gracze(self):
-        with open(self.gracze_path, "w", encoding="utf-8") as f:
-            json.dump(self.gracze, f, indent=4, ensure_ascii=False)
+        self.db = db_manager
 
     def resolve_target(self, target: str, mentions: list):
-        """Pomocnicza funkcja do ustalania nicku z mentiona lub aliasu."""
-        if mentions:
-            user_id = str(mentions[0].id)
-            return self.gracze.get(user_id, target)
-        
-        target_lower = target.lower().strip()
-        if target_lower in self.gracze:
-            return self.gracze[target_lower]
-        return target
+        # Wyciąga ID jeśli jest wzmianka
+        search_term = str(mentions[0].id) if mentions else target.strip()
+        clean_id = search_term.replace("<@", "").replace("!", "").replace(">", "").replace("&", "")
 
+        conn = self.db.get_connection()
+        try:
+            cursor = conn.cursor()
+            #LOWER zeby na pewno działało dla dużych i małych liter
+            cursor.execute('''
+                SELECT lp.riot_id 
+                FROM league_profiles lp
+                LEFT JOIN league_aliases la ON lp.user_id = la.user_id
+                WHERE lp.user_id = ? OR LOWER(la.alias) = LOWER(?)
+                LIMIT 1
+            ''', (clean_id, target.lower()))
+            
+            row = cursor.fetchone()
+            
+            # Jeśli znaleziono w bazie, zwraca riot_id. 
+            # Jeśli NIE znaleziono, zwraca oryginał (Nick#Tag)
+            return row[0] if (row and row[0]) else target
+        except Exception as e:
+            logger.error(f"Błąd bazy w resolve_target: {e}")
+            return target
+        finally:
+            conn.close()
     
-    @commands.command()
-    async def dodaj(self, ctx, alias: str, nick_z_tagiem: str):
+    @commands.command(name="aliasy", description="Pokazuje listę wszystkich aliasów w systemie")
+    async def aliasy(self, ctx):
+        conn = self.db.get_connection()
+        try:
+            cursor = conn.cursor()
+            # Pobiera wszystkie aliasy i przypisane do nich Riot ID
+            # JOIN,  Nick#Tag pod aliasem
+            cursor.execute('''
+                SELECT la.alias, lp.riot_id 
+                FROM league_aliases la
+                JOIN league_profiles lp ON la.user_id = lp.user_id
+            ''')
+            rows = cursor.fetchall()
+            
+            if not rows:
+                await ctx.send("Baza aliasów jest obecnie pusta.")
+                return
+
+            # lista i sort
+            rows.sort(key=lambda x: x[0])
+            
+            tekst = ""
+            for alias, riot_id in rows:
+                # tylko tekstowe aliasy, bez @
+                if not alias.isdigit():
+                    tekst += f"• `{alias}` ➔ **{riot_id}**\n"
+
+            if not tekst:
+                tekst = "Brak tekstowych aliasów (tylko powiązania z ID)."
+
+            embed = discord.Embed(
+                title="Wszystkie aliasy",
+                description=tekst,
+                color=discord.Color.blue()
+            )
+            await ctx.send(embed=embed)
+        except Exception as e:
+            logger.error(f"Błąd w komendzie aliasy: {e}")
+            await ctx.send("Wystąpił błąd podczas pobierania listy.")
+        finally:
+            conn.close()
+
+    @commands.command(name="dodaj")
+    async def dodaj(self, ctx, alias_lub_mention: str, nick_z_tagiem: str):
         if "#" not in nick_z_tagiem:
-            await ctx.send("Błąd: Nick musi zawierać tag (np. Nick#EUNE)")
+            await ctx.send(" Użyj formatu `Nick#Tag`.")
             return
-        
-        key = str(ctx.message.mentions[0].id) if ctx.message.mentions else alias.lower()
-        self.gracze[key] = nick_z_tagiem
-        self.save_gracze()
-        await ctx.send(f"Zapisano: {alias} -> {nick_z_tagiem}")
+
+        # Jeśli pierwszy argument to @
+        if ctx.message.mentions:
+            target_id = str(ctx.message.mentions[0].id)
+            final_alias = target_id 
+        else:
+            # Jeśli to tekst np. !dodaj Franek 
+            # alias jako unikalny identyfikatora w tabeli profili 
+            # zamiast dc_id.
+            target_id = alias_lub_mention.lower()
+            final_alias = target_id
+
+        conn = self.db.get_connection()
+        try:
+            cursor = conn.cursor()
+            # stworzenie profilu Ligi
+            cursor.execute('''
+                INSERT OR REPLACE INTO league_profiles (user_id, riot_id) 
+                VALUES (?, ?)
+            ''', (target_id, nick_z_tagiem))
+            
+            # ... oraz jego aliasu
+            cursor.execute('''
+                INSERT OR IGNORE INTO league_aliases (alias, user_id) 
+                VALUES (?, ?)
+            ''', (final_alias, target_id))
+            
+            conn.commit()
+            
+            msg = f"Powiązano `{nick_z_tagiem}` ze skrótem `{final_alias}`"
+            if target_id.isdigit():
+                msg = f"Powiązano `{nick_z_tagiem}` z kontem <@{target_id}>"
+            
+            await ctx.send(msg)
+        except Exception as e:
+            logger.error(f"Błąd w dodaj: {e}")
+            await ctx.send(" Błąd bazy danych.")
+        finally:
+            conn.close()
 
     #KOMENDA RANK
     @commands.hybrid_command(name="rank", description="Sprawdza rangę gracza na OP.GG")
@@ -59,7 +138,8 @@ class League(commands.Cog):
         logger.info(f"Użytkownik {ctx.author} sprawdza rangę: {cel}")
 
         # Obsługa mentions dla Slash i prefixowych komend
-        mentions = ctx.message.mentions if ctx.message else []
+        
+        mentions = ctx.message.mentions if (ctx.message and ctx.message.mentions) else []
         target = self.resolve_target(cel, mentions)
 
         if "#" not in target:
@@ -94,7 +174,8 @@ class League(commands.Cog):
         await ctx.defer()
         logger.info(f"Użytkownik {ctx.author} sprawdza masterie: {cel}")
 
-        mentions = ctx.message.mentions if ctx.message else []
+        # Obsługa mentions dla Slash i prefixowych komend
+        mentions = ctx.message.mentions if (ctx.message and ctx.message.mentions) else []
         target = self.resolve_target(cel, mentions)
 
         if "#" not in target:
@@ -123,6 +204,4 @@ class League(commands.Cog):
 
 
 async def setup(bot):
-    # Pobiera ścieżkę z configu bota
-    path = bot.config['GRACZE_PATH']
-    await bot.add_cog(League(bot, path))
+    await bot.add_cog(League(bot, bot.db))
