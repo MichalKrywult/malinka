@@ -1,5 +1,6 @@
 import logging
 
+import aiohttp
 import discord
 from discord.ext import commands
 from utils.leauge_scraper import (
@@ -8,6 +9,9 @@ from utils.leauge_scraper import (
 )
 
 logger = logging.getLogger('discord_bot')
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+}
 
 class League(commands.Cog):
     def __init__(self, bot,db_manager):
@@ -15,8 +19,12 @@ class League(commands.Cog):
         self.db = db_manager
         self.session = None
     async def cog_load(self) -> None:
+        self.session = aiohttp.ClientSession(headers=HEADERS)
         return await super().cog_load()
+    
     async def cog_unload(self) -> None:
+        if self.session:
+            await self.session.close()
         return await super().cog_unload()
 
     def resolve_target(self, target: str, mentions: list):
