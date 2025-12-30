@@ -11,39 +11,54 @@ from database.db_manager import DBManager  # pyright: ignore[reportMissingImport
 from discord.ext import commands
 from dotenv import load_dotenv
 
+load_dotenv()
+
 # Konfiguracja ścieżek i tokena
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 DB_PATH = os.path.join(DATA_DIR, "reminder.db")
+if not os.path.exists(DATA_DIR):
+    os.makedirs(DATA_DIR)
+
+
+env_log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
+
+# Mapowanie tekstu na stałe logging
+log_levels = {
+    'DEBUG': logging.DEBUG,
+    'INFO': logging.INFO,
+    'WARNING': logging.WARNING,
+    'ERROR': logging.ERROR,
+    'CRITICAL': logging.CRITICAL
+}
+
+target_level = log_levels.get(env_log_level, logging.INFO)
 
 logger = logging.getLogger('discord_bot')
-logger.setLevel(logging.INFO)
+logger.setLevel(target_level)
 # RotatingFileHandler zapobiega zapchaniu karty SD 
-# Gdy plik osiągnie 5MB, tworzy nowy (trzyma max 3 kopie)
+# Gdy plik osiągnie 5MB, tworzy nowy (trzyma jedna kopie)
 log_path = os.path.join(DATA_DIR, 'bot.log')
 handler = RotatingFileHandler(
     filename=log_path, 
     encoding='utf-8', 
     maxBytes=5 * 1024 * 1024, 
-    backupCount=3
+    backupCount=1
 )
 handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
 logger.addHandler(handler)
+handler.setLevel(target_level)
 
 # logowanie na konsolę,
 console_handler = logging.StreamHandler()
 console_handler.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))
 logger.addHandler(console_handler)
-
-if not os.path.exists(DATA_DIR):
-    os.makedirs(DATA_DIR)
-
-load_dotenv()
-TOKEN = os.getenv('DISCORD_TOKEN')
+console_handler.setLevel(target_level)
 
 # Setup bota
 intents = discord.Intents.all()
 intents.message_content = True
+TOKEN = os.getenv('DISCORD_TOKEN')
 
 class MyBot(commands.Bot):
     def __init__(self):

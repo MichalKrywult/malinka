@@ -13,6 +13,11 @@ class League(commands.Cog):
     def __init__(self, bot,db_manager):
         self.bot = bot
         self.db = db_manager
+        self.session = None
+    async def cog_load(self) -> None:
+        return await super().cog_load()
+    async def cog_unload(self) -> None:
+        return await super().cog_unload()
 
     def resolve_target(self, target: str, mentions: list):
         # Wyciąga ID jeśli jest wzmianka
@@ -146,7 +151,11 @@ class League(commands.Cog):
             await ctx.send("Nieznany gracz lub błędny format. Użyj `Nick#Tag`.")
             return
 
-        data = await fetch_rank_data(target)
+        if self.session is not None:
+            data = await fetch_rank_data(self.session ,target)
+        else:
+            await ctx.send("Błąd sesji")
+            return
         
         if data is None:
             logger.warning(f"Błąd połączenia z OP.GG dla gracza: {target}")
@@ -181,9 +190,11 @@ class League(commands.Cog):
         if "#" not in target:
             await ctx.send("Podaj `Nick#Tag` lub dodaj gracza za pomocą `!dodaj`.")
             return
-
-        data = await fetch_mastery_data(target)
-
+        if self.session is not None:
+            data = await fetch_mastery_data(self.session ,target)
+        else:
+            await ctx.send("Błąd sesji")
+            return
         if data is None:
             logger.warning(f"Błąd połączenia z OP.GG dla gracza: {target}")
             await ctx.send("Nie udało się połączyć z OP.GG.")

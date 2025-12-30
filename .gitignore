@@ -11,3 +11,5 @@ venv/
 env/
 .venv/
 .vscode/
+#tests
+test_mem.py

@@ -6,7 +6,7 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 }
 
-async def fetch_rank_data(nick_tag: str):
+async def fetch_rank_data(session: aiohttp.ClientSession,nick_tag: str):
     """Zwraca słownik z danymi o randze lub None w przypadku błędu."""
     name_tag = nick_tag.replace("#", "-")
     url = f"https://www.op.gg/lol/summoners/eune/{name_tag}"
@@ -54,7 +54,7 @@ async def fetch_rank_data(nick_tag: str):
                 "nick": nick_tag
             }
 
-async def fetch_mastery_data(nick_tag: str):
+async def fetch_mastery_data(session: aiohttp.ClientSession,nick_tag: str):
     """Zwraca listę top mastery."""
     name_tag = nick_tag.replace("#", "-")
     url = f"https://www.op.gg/lol/summoners/eune/{name_tag}/mastery"
