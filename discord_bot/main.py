@@ -23,7 +23,6 @@ if not os.path.exists(DATA_DIR):
 
 env_log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
 
-# Mapowanie tekstu na stałe logging
 log_levels = {
     'DEBUG': logging.DEBUG,
     'INFO': logging.INFO,
@@ -32,28 +31,36 @@ log_levels = {
     'CRITICAL': logging.CRITICAL
 }
 
-target_level = log_levels.get(env_log_level, logging.INFO)
+file_level = log_levels.get(env_log_level, logging.WARNING)
+console_level = logging.INFO
 
 logger = logging.getLogger('discord_bot')
-logger.setLevel(target_level)
-# RotatingFileHandler zapobiega zapchaniu karty SD 
-# Gdy plik osiągnie 5MB, tworzy nowy (trzyma jedna kopie)
-log_path = os.path.join(DATA_DIR, 'bot.log')
-handler = RotatingFileHandler(
-    filename=log_path, 
-    encoding='utf-8', 
-    maxBytes=5 * 1024 * 1024, 
-    backupCount=1
-)
-handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
-logger.addHandler(handler)
-handler.setLevel(target_level)
+logger.setLevel(logging.DEBUG)
+logger.propagate = False
 
-# logowanie na konsolę,
-console_handler = logging.StreamHandler()
-console_handler.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))
-logger.addHandler(console_handler)
-console_handler.setLevel(target_level)
+if not logger.handlers:
+    # plik
+    file_handler = RotatingFileHandler(
+        filename=os.path.join(DATA_DIR, 'bot.log'),
+        encoding='utf-8',
+        maxBytes=5 * 1024 * 1024,
+        backupCount=1
+    )
+    file_handler.setFormatter(
+        logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s')
+    )
+    file_handler.setLevel(file_level)
+    logger.addHandler(file_handler)
+
+    # konsola
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(
+        logging.Formatter('%(levelname)s: %(message)s')
+    )
+    console_handler.setLevel(console_level)
+    logger.addHandler(console_handler)
+
+
 
 # Setup bota
 intents = discord.Intents.all()
