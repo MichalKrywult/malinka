@@ -17,7 +17,7 @@ class General(commands.Cog):
         self.stats_monitor.stop()
         return super().cog_unload()
     
-    @tasks.loop(seconds=10.0)
+    @tasks.loop(seconds=1.0)
     async def stats_monitor(self):
         self.cpu_usage=psutil.cpu_percent(interval=None)
         self.memory_percent=psutil.virtual_memory().percent
