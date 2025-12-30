@@ -1,12 +1,44 @@
 import random
 
 import discord
-from discord.ext import commands
+import psutil
+from discord.ext import commands, tasks
 
 
 class General(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.cpu_usage=0
+        self.memory_percent=0
+        self.temperature=0
+        self.stats_monitor.start()
+    
+    def cog_unload(self):
+        self.stats_monitor.stop()
+        return super().cog_unload()
+    
+    @tasks.loop(seconds=10.0)
+    async def stats_monitor(self):
+        self.cpu_usage=psutil.cpu_percent(interval=None)
+        self.memory_percent=psutil.virtual_memory().percent
+        try:
+            func = getattr(psutil, "sensors_temperatures", None)
+            if func:
+                data=func()
+                self.temperature= data['cpu_thermal'][0].current
+            else:
+                self.temperature="N/A"
+        except Exception as e:
+            self.temperature= f"Błąd: {e}"
+
+    @commands.hybrid_command()
+    async def stats(self,ctx):
+        embed=discord.Embed(title="Statystyki",color=discord.Color.blue())
+        embed.add_field(name="Procesor",value=f"{round(self.cpu_usage,1)}%",inline=True)
+        embed.add_field(name="Pamięć",value=f"{round(self.memory_percent,1)}%",inline=True)
+        temp_display = f"{round(self.temperature, 1)}°C" if isinstance(self.temperature, (int, float)) else self.temperature
+        embed.add_field(name="Temperatura",value=temp_display,inline=True)
+        await ctx.send(embed=embed)
 
     @commands.command()
     async def kostka(self, ctx):
@@ -55,5 +87,13 @@ class General(commands.Cog):
         await ctx.send(embed=embed)
 
 
+
 async def setup(bot):
     await bot.add_cog(General(bot))
+
+
+
+
+
+
+
