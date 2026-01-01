@@ -8,7 +8,7 @@ from utils.weather_handler import (
     get_latest_weather_from_db,
 )
 
-target_time = datetime.time(hour=6, minute=15)
+target_time = datetime.time(hour=5, minute=15)
 
 class Weather(commands.Cog):
     def __init__(self, bot):
@@ -39,6 +39,5 @@ class Weather(commands.Cog):
             await ctx.send(embed=embed)
         else:
             await ctx.send("Nie ma obecnie dostępu do danych pogodowych.")
-
 async def setup(bot):
     await bot.add_cog(Weather(bot))

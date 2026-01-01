@@ -83,7 +83,7 @@ class Reminders(commands.Cog):
                             
                             if str(user_id) == str(OWNER_DISCORD_ID):
                                 try:
-                                    await send_telegram_msg(content)
+                                    await send_telegram_msg(self.bot,content)
                                 except Exception as e:
                                     print(f"Nieudane wysłanie na Telegram: {e}")
                         except Exception as e:

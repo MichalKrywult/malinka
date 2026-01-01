@@ -22,9 +22,10 @@ async def fetch_and_save_weather(db_path, session):
             with sqlite3.connect(db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
-                    INSERT INTO weather (date, hour, temperature, wind, rainfall)
-                    VALUES (?, ?, ?, ?, ?)
+                    INSERT INTO weather (station,date, hour, temperature, wind, rainfall)
+                    VALUES (?, ?, ?, ?, ?, ?)
                 """, (
+                    data.get('stacja', 'Nieznana'),
                     data.get('data_pomiaru', "0"),
                     int(data.get('godzina_pomiaru', 0)),
                     float(data.get('temperatura', 0)),
@@ -61,7 +62,7 @@ def create_weather_embed(data):
         return discord.Embed(title="Błąd", description="Brak danych pogodowych.", color=discord.Color.red())
 
     embed = discord.Embed(
-        title=f"Pogoda dla: {data.get('stacja', 'Nieznana stacja')}",
+        title=f"Pogoda dla: {data.get('station', 'Nieznana stacja')}",
         color=discord.Color.blue(),
         timestamp=datetime.datetime.now()
     )

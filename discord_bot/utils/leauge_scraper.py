@@ -1,4 +1,3 @@
-import aiohttp
 from bs4 import BeautifulSoup
 
 # Nagłówki, żeby OP.GG nie blokowało
@@ -6,12 +5,13 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 }
 
-async def fetch_rank_data(session: aiohttp.ClientSession,nick_tag: str):
+async def fetch_rank_data(session,nick_tag: str):
     """Zwraca słownik z danymi o randze lub None w przypadku błędu."""
+
     name_tag = nick_tag.replace("#", "-")
     url = f"https://www.op.gg/lol/summoners/eune/{name_tag}"
 
-    async with session.get(url) as response:
+    async with session.get(url,headers=HEADERS,timeout=10) as response:
         if response.status != 200:
             return None
         
@@ -53,12 +53,12 @@ async def fetch_rank_data(session: aiohttp.ClientSession,nick_tag: str):
             "nick": nick_tag
         }
 
-async def fetch_mastery_data(session: aiohttp.ClientSession,nick_tag: str):
+async def fetch_mastery_data(session,nick_tag: str):
     """Zwraca listę top mastery."""
     name_tag = nick_tag.replace("#", "-")
     url = f"https://www.op.gg/lol/summoners/eune/{name_tag}/mastery"
 
-    async with session.get(url) as response:
+    async with session.get(url,headers=HEADERS,timeout=10) as response:
         if response.status != 200:
             return None
         

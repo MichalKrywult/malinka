@@ -12,6 +12,7 @@ class DBManager:
         """Tworzy tabele, jeśli nie istnieją"""
         conn = self.get_connection()
         cursor = conn.cursor()
+        cursor.execute('''PRAGMA journal_mode=WAL;''')
         cursor.execute('''CREATE TABLE IF NOT EXISTS reminder (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
@@ -38,8 +39,18 @@ class DBManager:
             temperature REAL,    
             wind REAL,           
             rainfall REAL,       
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP                             
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            station TEXT                             
         )''')
+
+        
+        try:
+            cursor.execute("ALTER TABLE weather ADD COLUMN station TEXT;")
+            conn.commit()
+            print("Dodano kolumnę 'station' do tabeli weather.")
+        except sqlite3.OperationalError:
+            pass
+
 
         conn.commit()
         conn.close()
