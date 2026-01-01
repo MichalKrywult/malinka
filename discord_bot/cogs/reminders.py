@@ -6,7 +6,7 @@ from datetime import datetime
 import discord
 from discord import app_commands, ui
 from discord.ext import commands, tasks
-from utils.telegram_notifier import send_telegram_msg
+from utils.notifer import send_telegram_msg
 
 OWNER_DISCORD_ID = os.getenv('OWNER_DISCORD_ID')
 

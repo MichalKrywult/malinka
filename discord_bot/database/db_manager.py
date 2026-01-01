@@ -9,7 +9,7 @@ class DBManager:
         return sqlite3.connect(self.db_path)
 
     def initialize_db(self):
-        """Tworzy tabele, jeśli nie istnieje"""
+        """Tworzy tabele, jeśli nie istnieją"""
         conn = self.get_connection()
         cursor = conn.cursor()
         cursor.execute('''CREATE TABLE IF NOT EXISTS reminder (
@@ -21,14 +21,24 @@ class DBManager:
         )''')
        
         cursor.execute('''CREATE TABLE IF NOT EXISTS league_profiles (
-        user_id TEXT PRIMARY KEY,
-        riot_id TEXT NOT NULL
+            user_id TEXT PRIMARY KEY,
+            riot_id TEXT NOT NULL
         )''')
 
         cursor.execute('''CREATE TABLE IF NOT EXISTS league_aliases (
-        alias TEXT PRIMARY KEY,
-        user_id TEXT,
-        FOREIGN KEY (user_id) REFERENCES league_profiles(user_id) ON DELETE CASCADE
+            alias TEXT PRIMARY KEY,
+            user_id TEXT,
+            FOREIGN KEY (user_id) REFERENCES league_profiles(user_id) ON DELETE CASCADE
+        )''')
+
+        cursor.execute('''CREATE TABLE IF NOT EXISTS weather (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT,           
+            hour INTEGER,        
+            temperature REAL,    
+            wind REAL,           
+            rainfall REAL,       
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP                             
         )''')
 
         conn.commit()

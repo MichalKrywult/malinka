@@ -57,6 +57,7 @@ class League(commands.Cog):
     
     @commands.command(name="aliasy", description="Pokazuje listę wszystkich aliasów w systemie")
     async def aliasy(self, ctx):
+        """Pokazuje liste aliasow"""
         conn = self.db.get_connection()
         try:
             cursor = conn.cursor()
@@ -99,6 +100,7 @@ class League(commands.Cog):
 
     @commands.command(name="dodaj")
     async def dodaj(self, ctx, alias_lub_mention: str, nick_z_tagiem: str):
+        """Pozwala dodawać uzytkownikow do systemu (LoL)"""
         if "#" not in nick_z_tagiem:
             await ctx.send(" Użyj formatu `Nick#Tag`.")
             return

@@ -2,12 +2,14 @@ import asyncio
 import os
 import sys
 
+import aiohttp
+
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 import logging
 from logging.handlers import RotatingFileHandler
 
 import discord
-from database.db_manager import DBManager  # pyright: ignore[reportMissingImports] 
+from database.db_manager import DBManager
 from discord.ext import commands
 from dotenv import load_dotenv
 
@@ -16,7 +18,7 @@ load_dotenv()
 # Konfiguracja ścieżek i tokena
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
-DB_PATH = os.path.join(DATA_DIR, "reminder.db")
+DB_PATH = os.path.join(DATA_DIR, "database.db")
 if not os.path.exists(DATA_DIR):
     os.makedirs(DATA_DIR)
 
@@ -70,6 +72,7 @@ TOKEN = os.getenv('DISCORD_TOKEN')
 class MyBot(commands.Bot):
     def __init__(self):
         super().__init__(command_prefix='!', intents=intents, help_command=None)
+        self.session = None
         # Przekazujemy config do bota, żeby Cogi miały do niego dostęp
         self.config = {
             'BASE_DIR': BASE_DIR,
@@ -83,9 +86,10 @@ class MyBot(commands.Bot):
         # Inicjalizacja DB
         db_manager = DBManager(DB_PATH)
         db_manager.initialize_db()
+        self.session = aiohttp.ClientSession()
 
         # Ładowanie Cogów
-        cogs = ['cogs.general', 'cogs.league', 'cogs.reminders']
+        cogs = ['cogs.general', 'cogs.league', 'cogs.reminders','cogs.weather']
         for cog in cogs:
             try:
                 await self.load_extension(cog)
@@ -108,6 +112,10 @@ class MyBot(commands.Bot):
         else:
             print('Zalogowano, ale obiekt self.user nie jest jeszcze dostępny.')
 
+    async def close(self):
+        if self.session:
+            await self.session.close()
+        await super().close()
 # Uruchomienie bota
 async def main():
     if not TOKEN:
