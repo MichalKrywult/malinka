@@ -89,7 +89,7 @@ class MyBot(commands.Bot):
         self.session = aiohttp.ClientSession()
 
         # Ładowanie Cogów
-        cogs = ['cogs.general', 'cogs.league', 'cogs.reminders','cogs.weather']
+        cogs = ['cogs.general', 'cogs.league', 'cogs.reminders','cogs.weather','cogs.system']
         for cog in cogs:
             try:
                 await self.load_extension(cog)

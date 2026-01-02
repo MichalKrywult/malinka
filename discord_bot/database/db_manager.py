@@ -43,14 +43,10 @@ class DBManager:
             station TEXT                             
         )''')
 
-        
-        try:
-            cursor.execute("ALTER TABLE weather ADD COLUMN station TEXT;")
-            conn.commit()
-            print("Dodano kolumnę 'station' do tabeli weather.")
-        except sqlite3.OperationalError:
-            pass
-
+        cursor.execute('''CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        )''')
 
         conn.commit()
         conn.close()
