@@ -30,7 +30,7 @@ class Weather(commands.Cog):
             embed = create_weather_embed(data)             
             await send_system_alert(self.bot,embed)
 
-    @commands.hybrid_command(name="pogoda")
+    @commands.hybrid_command(name="pogoda",description="Pokazuje pogode")
     async def pogoda(self, ctx):
         """Pokazuje obecną pogodę"""
         data = await get_latest_weather_from_db(self.db_path)

@@ -44,6 +44,34 @@ class ReminderModal(ui.Modal, title='Dodaj Przypomnienie'):
         except ValueError:
             await interaction.response.send_message("Błędny format daty!", ephemeral=True)
 
+
+class ReminderActionView(ui.View):
+    def __init__(self, bot, db_manager, reminder_id, content):
+        super().__init__(timeout=None) # Przycisk nie wygasnie 
+        self.bot = bot
+        self.db = db_manager
+        self.reminder_id = reminder_id
+        self.content = content
+
+    @ui.button(label="Drzemka (15 min)", style=discord.ButtonStyle.secondary, emoji="⏰")
+    async def snooze(self, interaction: discord.Interaction, button: ui.Button):
+        new_time = int(time.time() + (15 * 60))
+        
+        with self.db.get_connection() as conn:
+            # Ustawiam nowy czas i reset is_sent na 0
+            conn.execute(
+                "UPDATE reminder SET remind_at = ?, is_sent = 0 WHERE id = ?", 
+                (new_time, self.reminder_id)
+            )
+            conn.commit()
+        
+        await interaction.response.edit_message(content=f"Odłożono: **{self.content}** o 15 minut.", view=None)
+
+    @ui.button(label="Zrobione", style=discord.ButtonStyle.success, emoji="✅")
+    async def done(self, interaction: discord.Interaction, button: ui.Button):
+        await interaction.response.edit_message(content=f"Zrobione: **{self.content}**", view=None)
+        self.stop()
+
 class Reminders(commands.Cog):
     def __init__(self, bot, db_manager): # Konstruktor przyjmuje db_manager
         self.bot = bot
@@ -77,7 +105,9 @@ class Reminders(commands.Cog):
                     user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
                     if user:
                         try:
-                            await user.send(f"**Przypomnienie:** {content}")
+                            view = ReminderActionView(self.bot, self.db, rem_id, content)
+
+                            await user.send(f"**Przypomnienie:** {content}",view = view)
                             # Aktualizacja statusu w bazie
                             cursor.execute("UPDATE reminder SET is_sent = 1 WHERE id = ?", (rem_id,))
                             
