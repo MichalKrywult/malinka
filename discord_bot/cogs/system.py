@@ -58,7 +58,7 @@ class SystemMonitor(commands.Cog):
 
         if isinstance(self.temperature, (int, float)):
             if self.temperature > 70 and not self.alert_sent:
-                await send_system_alert(self.bot, f"⚠️ **Alert Malinki!** Wysoka temperatura: {self.temperature}°C. Zwalniam monitoring.")
+                await send_system_alert(self.bot, f"**Alert Malinki!** Wysoka temperatura: {self.temperature}°C. Zwalniam monitoring.")
                 self.alert_sent = True
                 self.stats_monitor.change_interval(seconds=180.0)  #type: ignore
             
@@ -82,6 +82,7 @@ class SystemMonitor(commands.Cog):
 
     @commands.hybrid_command(name="stats", description="Pokazuje statystyki malinki")
     async def stats(self, ctx):
+        """Pokazuje statystki malinki"""
         uptime_seconds = int(time.time() - self.start_time)
         days, rem = divmod(uptime_seconds, 86400)
         hours, rem = divmod(rem, 3600)

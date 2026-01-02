@@ -1,13 +1,53 @@
 import datetime
+import json
 import logging
 import os
 import sqlite3
+from urllib.parse import quote
 
 import discord
 from dotenv import load_dotenv
 
 load_dotenv()
 logger = logging.getLogger('discord_bot')
+
+def get_weather_chart_url(db_path):
+    import sqlite3
+    with sqlite3.connect(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT temperature, hour FROM weather 
+            ORDER BY date DESC, hour DESC LIMIT 6
+        """)
+        rows = cursor.fetchall()[::-1] # odwrocenie zeby było chronologicznie 
+
+    if not rows:
+        return None
+
+    temps = [row[0] for row in rows]
+    labels = [f"{row[1]}:00" for row in rows]
+
+    # Konfiguracja wykresu dla QuickChart (Chart.js)
+    chart_config = {
+        "type": "line",
+        "data": {
+            "labels": labels,
+            "datasets": [{
+                "label": "Temperatura (°C)",
+                "data": temps,
+                "fill": True,
+                "backgroundColor": "rgba(54, 162, 235, 0.2)",
+                "borderColor": "rgb(54, 162, 235)",
+                "tension": 0.4
+            }]
+        },
+        "options": {
+            "title": {"display": True, "text": "Trend temperatury"}
+        }
+    }
+
+    encoded_config = quote(json.dumps(chart_config))
+    return f"https://quickchart.io/chart?c={encoded_config}"
 
 async def fetch_and_save_weather(db_path, session):
     url = os.getenv("WEATHER_API") #https://danepubliczne.imgw.pl/api/data/synop/id/XxX
