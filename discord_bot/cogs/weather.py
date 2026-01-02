@@ -65,10 +65,6 @@ class Weather(commands.Cog):
                 embed.add_field(name="Min", value=f"{daily['temperature_2m_min'][0]}°C", inline=True)
                 embed.add_field(name="Opady", value=f"{prob}%", inline=True)
 
-                chart_url = get_weather_chart_url(self.db_path)
-                if chart_url:
-                    embed.set_image(url=chart_url)
-
                 embed.set_footer(text="Dane: Open-Meteo")
                 return embed
         except Exception as e:
@@ -103,7 +99,8 @@ class Weather(commands.Cog):
         embed=await self.get_forecast_embed('bielsko')
         if data:        
             embed_current = create_weather_embed(data)
-            await send_system_alert(self.bot, embed_current)
+            if embed_current:
+                await send_system_alert(self.bot, embed_current)
         if embed:
             await send_system_alert(self.bot,embed)
 
