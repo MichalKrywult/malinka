@@ -17,7 +17,7 @@ def get_weather_chart_url(db_path):
         cursor = conn.cursor()
         cursor.execute("""
             SELECT temperature, hour FROM weather 
-            ORDER BY date DESC, hour DESC LIMIT 6
+            ORDER BY date DESC, hour DESC LIMIT 12
         """)
         rows = cursor.fetchall()[::-1] # odwrocenie zeby było chronologicznie 
 

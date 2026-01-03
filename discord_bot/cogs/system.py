@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import socket
 import time
@@ -9,7 +10,7 @@ from utils.notifer import send_system_alert
 
 logger = logging.getLogger('discord_bot')
 
-class SystemMonitor(commands.Cog):
+class System(commands.Cog):
     def __init__(self, bot, db_manager):
         self.bot = bot
         self.db = db_manager
@@ -20,9 +21,12 @@ class SystemMonitor(commands.Cog):
         self.start_time = time.time()
         
         self.stats_monitor.start()
+        self.daily_cleanup.start()
+        
     
     def cog_unload(self):
         self.stats_monitor.cancel()
+        self.daily_cleanup.cancel()
 
     def get_local_ip(self):
         """Pobiera lokalny adres IP."""
@@ -99,5 +103,14 @@ class SystemMonitor(commands.Cog):
         embed.set_footer(text=f"Uptime: {uptime_str} | Odświeżanie: {self.stats_monitor.seconds}s")
         await ctx.send(embed=embed)
 
+    @tasks.loop(hours=24)
+    async def daily_cleanup(self):
+        loop = asyncio.get_event_loop()
+        stats = await loop.run_in_executor(None, self.db.cleanup_old_data, 7)
+        if stats:
+            logger.info(f"Usunięto {stats['weather']} wpisów pogodowych. \n Usunięto {stats['reminders']}")
+
+    
+
 async def setup(bot):
-    await bot.add_cog(SystemMonitor(bot, bot.db))
+    await bot.add_cog(System(bot, bot.db))

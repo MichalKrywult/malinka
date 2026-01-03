@@ -1,5 +1,8 @@
+import logging
 import sqlite3
+import time
 
+logger = logging.getLogger('discord_bot')
 
 class DBManager:
     def __init__(self, db_path):
@@ -50,3 +53,35 @@ class DBManager:
 
         conn.commit()
         conn.close()
+
+    def cleanup_old_data(self, days=7):
+        """Usuwa stare dane historyczne z bazy."""
+        conn = self.get_connection()
+        try:
+            cursor = conn.cursor()
+            
+            # Czyszczenie tabeli weather
+            # SQLite funkcja datetime('now', '-X days') zwraca punkt odniesienia
+            cursor.execute(
+                "DELETE FROM weather WHERE timestamp < datetime('now', ?)", 
+                (f'-{days} days',)
+            )
+            weather_deleted = cursor.rowcount
+
+            # Wszystkie wysłane i starsze niz 1 dzien (84600 sekund)
+            cursor.execute(
+                "DELETE FROM reminder WHERE is_sent = 1 AND remind_at < ?",
+                (int(time.time()) - (86400 * 1),)
+            )
+            reminders_deleted = cursor.rowcount
+
+            cursor.execute("VACUUM") 
+            conn.commit()
+            return {"weather": weather_deleted, "reminders": reminders_deleted}
+        except Exception as e:
+            print(f"Błąd podczas czyszczenia bazy: {e}")
+            logger.error(f"Błąd podczas czyszczenia bazy: {e}")
+            return None
+        finally:
+            conn.close()
+    

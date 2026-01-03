@@ -31,7 +31,9 @@ class Weather(commands.Cog):
             "wroclaw": {"name": "Wrocław", "lat": 51.10, "lon": 17.03},
             "poznan": {"name": "Poznań", "lat": 52.41, "lon": 16.92},
             "katowice": {"name": "Katowice", "lat": 50.26, "lon": 19.02},
-            "lodz": {"name": "Łódź", "lat": 51.75, "lon": 19.46}
+            "lodz": {"name": "Łódź", "lat": 51.75, "lon": 19.46},
+            "gdansk": {"name": "Łódź", "lat": 54.35, "lon": 18.67},
+            "zakopane": {"name": "Łódź", "lat": 49.18, "lon": 19.58}
         }
 
         clean_key = city_key.lower().replace("ł", "l").replace("ó", "o").replace("ń", "n").replace("ź", "z").replace("ś", "s").replace("ą", "a").replace("ę", "e").replace("-", "")
@@ -61,8 +63,8 @@ class Weather(commands.Cog):
                     color=color,
                     timestamp=datetime.datetime.now()
                 )
-                embed.add_field(name="Max", value=f"{daily['temperature_2m_max'][0]}°C", inline=True)
                 embed.add_field(name="Min", value=f"{daily['temperature_2m_min'][0]}°C", inline=True)
+                embed.add_field(name="Max", value=f"{daily['temperature_2m_max'][0]}°C", inline=True)
                 embed.add_field(name="Opady", value=f"{prob}%", inline=True)
 
                 embed.set_footer(text="Dane: Open-Meteo")
@@ -100,6 +102,9 @@ class Weather(commands.Cog):
         if data:        
             embed_current = create_weather_embed(data)
             if embed_current:
+                chart_url=get_weather_chart_url(self.db_path)
+                if chart_url:
+                    embed_current.set_image(url=chart_url)
                 await send_system_alert(self.bot, embed_current)
         if embed:
             await send_system_alert(self.bot,embed)
