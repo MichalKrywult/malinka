@@ -1,0 +1,11 @@
+__init__.py
+__pycache__
+
+discord_bot/data/
+data/
+.env
+
+
+.venv
+.vscode
+.git
