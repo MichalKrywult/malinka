@@ -59,26 +59,26 @@ class DBManager:
         conn = self.get_connection()
         try:
             cursor = conn.cursor()
-            
-            # Czyszczenie tabeli weather
-            # SQLite funkcja datetime('now', '-X days') zwraca punkt odniesienia
             cursor.execute(
                 "DELETE FROM weather WHERE timestamp < datetime('now', ?)", 
                 (f'-{days} days',)
             )
             weather_deleted = cursor.rowcount
 
-            # Wszystkie wysłane i starsze niz 1 dzien (84600 sekund)
             cursor.execute(
                 "DELETE FROM reminder WHERE is_sent = 1 AND remind_at < ?",
                 (int(time.time()) - (86400 * 1),)
             )
             reminders_deleted = cursor.rowcount
 
-            cursor.execute("VACUUM") 
-            conn.commit()
+            # COMMIT TUTAJ
+            conn.commit() 
+            # VACUUM TUTAJ
+            conn.execute("VACUUM") 
+            
             return {"weather": weather_deleted, "reminders": reminders_deleted}
         except Exception as e:
+            conn.rollback() 
             print(f"Błąd podczas czyszczenia bazy: {e}")
             logger.error(f"Błąd podczas czyszczenia bazy: {e}")
             return None
