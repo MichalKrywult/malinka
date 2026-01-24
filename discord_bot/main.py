@@ -78,14 +78,11 @@ class MyBot(commands.Bot):
             'BASE_DIR': BASE_DIR,
             'DB_PATH': DB_PATH
         }
-
-        self.db = DBManager(DB_PATH)
-        self.db.initialize_db()
+        self.db=DBManager(DB_PATH)
     async def setup_hook(self):
         """Metoda uruchamiana przy starcie, do ładowania rozszerzeń."""
         # Inicjalizacja DB
-        db_manager = DBManager(DB_PATH)
-        db_manager.initialize_db()
+        self.db.initialize_db()
         self.session = aiohttp.ClientSession()
 
         # Ładowanie Cogów

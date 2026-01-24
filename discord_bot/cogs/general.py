@@ -58,6 +58,22 @@ class General(commands.Cog):
 
         await ctx.send(embed=embed)
 
+    @commands.hybrid_command(name="telegram_switch",hidden=True)
+    async def telegram_switch(self, ctx):
+        current = self.bot.db.is_telegram_enabled()
+        self.bot.db.set_telegram_enabled(not current)
+
+        await ctx.send(
+            f" Telegram {'włączony' if not current else 'wyłączony'}",ephemeral=True
+        )
+    @commands.command(name="telegram_status",hidden=True)
+    async def telegram_status(self, ctx):
+        "Pokazuje status powiadomień telegramowych"
+        state = self.bot.db.is_telegram_enabled()
+        await ctx.send(
+            f"📡 Telegram jest {'WŁĄCZONY' if state else 'WYŁĄCZONY'}",ephemeral=True
+        )
+
 
 async def setup(bot):
     await bot.add_cog(General(bot))

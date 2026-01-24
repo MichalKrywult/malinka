@@ -110,7 +110,5 @@ class System(commands.Cog):
         if stats:
             logger.info(f"Usunięto {stats['weather']} wpisów pogodowych. \n Usunięto {stats['reminders']}")
 
-    
-
 async def setup(bot):
     await bot.add_cog(System(bot, bot.db))
