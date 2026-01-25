@@ -1,7 +1,8 @@
 import logging
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 import discord
 from discord import app_commands, ui
@@ -46,16 +47,30 @@ class ReminderModal(ui.Modal, title='Dodaj Przypomnienie'):
     async def on_submit(self, interaction: discord.Interaction):
         try:
             pelna_data = f"{self.data_input.value}.{self.rok_input.value} {self.godzina_input.value}"
-            dt_obj = datetime.strptime(pelna_data, "%d.%m.%Y %H:%M")
+            dt_obj = datetime.strptime(
+                pelna_data,
+                "%d.%m.%Y %H:%M"
+            )
 
-            if dt_obj < datetime.now():
+            tz = ZoneInfo("Europe/Warsaw")
+
+            dt_obj = datetime.strptime(
+                pelna_data,
+                "%d.%m.%Y %H:%M"
+            )
+
+            dt_obj = dt_obj.replace(tzinfo=tz)
+            dt_obj = dt_obj.astimezone(timezone.utc)
+
+            remind_at = int(dt_obj.timestamp())
+
+
+            if dt_obj < datetime.now(timezone.utc):
                 await interaction.response.send_message(
                     "Ta data już minęła!",
                     ephemeral=True
                 )
                 return
-
-            remind_at = int(dt_obj.timestamp())
 
             with self.db._lock:
                 self.db.conn.execute(
@@ -145,7 +160,8 @@ class Reminders(commands.Cog):
     @tasks.loop(seconds=60)
     async def check_reminder(self):
         await self.bot.wait_until_ready()
-        now = int(time.time())
+        now = int(datetime.now(timezone.utc).timestamp())
+
 
         with self.db._lock:
             cursor = self.db.conn.cursor()
