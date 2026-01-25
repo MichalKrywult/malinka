@@ -10,6 +10,7 @@ async def send_telegram_msg(bot,message):
     #embed czy tekst
     if  not bot.db.is_telegram_enabled():
         return 
+    telegram_text = ""
     if isinstance(message, discord.Embed):
         title = f"<b>{html.escape(message.title or '')}</b>"
         desc = html.escape(message.description or "")
