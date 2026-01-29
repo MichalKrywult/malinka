@@ -42,47 +42,54 @@ class System(commands.Cog):
 
     @tasks.loop(seconds=30.0)
     async def stats_monitor(self):
-        self.cpu_usage = psutil.cpu_percent(interval=None)
-        self.memory_percent = psutil.virtual_memory().percent
-        
-
         try:
-            func = getattr(psutil, "sensors_temperatures", None)
-            if func:
-                data = func()
-                key = 'cpu_thermal' if 'cpu_thermal' in data else list(data.keys())[0] if data else None
-                if key:
-                    self.temperature = data[key][0].current
+            self.cpu_usage = psutil.cpu_percent(interval=None)
+            self.memory_percent = psutil.virtual_memory().percent
+            try:
+                func = getattr(psutil, "sensors_temperatures", None)
+                if func:
+                    data = func()
+                    key = 'cpu_thermal' if 'cpu_thermal' in data else list(data.keys())[0] if data else None
+                    if key:
+                        self.temperature = data[key][0].current
+                    else:
+                        self.temperature = "N/A"
                 else:
                     self.temperature = "N/A"
-            else:
-                self.temperature = "N/A"
+            except Exception as e:
+                self.temperature = f"Błąd: {e}"
+
+            if isinstance(self.temperature, (int, float)):
+                if self.temperature > 70 and not self.alert_sent:
+                    await send_system_alert(self.bot, f"**Alert Malinki!** Wysoka temperatura: {self.temperature}°C. Zwalniam monitoring.")
+                    self.alert_sent = True
+                    self.stats_monitor.change_interval(seconds=180.0)  #type: ignore
+                
+                elif self.temperature < 60 and self.alert_sent:
+                    await send_system_alert(self.bot, "**System schłodzony.** Powrót do normy.")
+                    self.alert_sent = False
+                    self.stats_monitor.change_interval(seconds=30.0)
+
+            current_ip = self.get_local_ip()
+            with self.db.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT value FROM settings WHERE key = 'last_local_ip'")
+                row = cursor.fetchone()
+                last_ip = row[0] if row else None
+
+                if current_ip != last_ip:
+                    cursor.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", 
+                                   ('last_local_ip', current_ip))
+                    conn.commit()
+                    await send_system_alert(self.bot, f"**Zmiana IP!** Nowy adres lokalny: `{current_ip}`")
+
         except Exception as e:
-            self.temperature = f"Błąd: {e}"
+            logger.error(f"Stats monitor crashed: {e}")
 
-        if isinstance(self.temperature, (int, float)):
-            if self.temperature > 70 and not self.alert_sent:
-                await send_system_alert(self.bot, f"**Alert Malinki!** Wysoka temperatura: {self.temperature}°C. Zwalniam monitoring.")
-                self.alert_sent = True
-                self.stats_monitor.change_interval(seconds=180.0)  #type: ignore
-            
-            elif self.temperature < 60 and self.alert_sent:
-                await send_system_alert(self.bot, "**System schłodzony.** Powrót do normy.")
-                self.alert_sent = False
-                self.stats_monitor.change_interval(seconds=30.0)
+    @stats_monitor.error
+    async def stats_monitor_error(self, error):
+        logger.error(f"Stats monitor crashed: {error}")
 
-        current_ip = self.get_local_ip()
-        with self.db.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT value FROM settings WHERE key = 'last_local_ip'")
-            row = cursor.fetchone()
-            last_ip = row[0] if row else None
-
-            if current_ip != last_ip:
-                cursor.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", 
-                               ('last_local_ip', current_ip))
-                conn.commit()
-                await send_system_alert(self.bot, f"**Zmiana IP!** Nowy adres lokalny: `{current_ip}`")
 
     @commands.hybrid_command(name="stats", description="Pokazuje statystyki malinki")
     async def stats(self, ctx):
