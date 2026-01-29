@@ -71,16 +71,18 @@ class System(commands.Cog):
                     self.stats_monitor.change_interval(seconds=30.0)
 
             current_ip = self.get_local_ip()
-            with self.db.get_connection() as conn:
-                cursor = conn.cursor()
+            with self.db._lock:
+                cursor = self.db.conn.cursor()
                 cursor.execute("SELECT value FROM settings WHERE key = 'last_local_ip'")
                 row = cursor.fetchone()
                 last_ip = row[0] if row else None
 
                 if current_ip != last_ip:
-                    cursor.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", 
-                                   ('last_local_ip', current_ip))
-                    conn.commit()
+                    cursor.execute(
+                        "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+                        ('last_local_ip', current_ip)
+                    )
+                    self.db.conn.commit()
                     await send_system_alert(self.bot, f"**Zmiana IP!** Nowy adres lokalny: `{current_ip}`")
 
         except Exception as e:
