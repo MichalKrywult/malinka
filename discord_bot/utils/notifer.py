@@ -6,7 +6,18 @@ import discord
 
 logger = logging.getLogger('discord_bot')
 
+
+
 async def send_telegram_msg(bot,message):
+    with bot.db.get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT value FROM settings WHERE key = 'telegram_enabled'"
+        )
+        row = cur.fetchone()
+        if row and row[0].lower() == "false":
+            return   
+
     #embed czy tekst
     if isinstance(message, discord.Embed):
         title = f"<b>{html.escape(message.title or '')}</b>"

@@ -1,14 +1,23 @@
 import asyncio
 import logging
+import os
 import socket
 import time
 
 import discord
 import psutil
 from discord.ext import commands, tasks
+from dotenv import load_dotenv
 from utils.notifer import send_system_alert
 
+load_dotenv()
+
+OWNER_DISCORD_ID = os.getenv('OWNER_DISCORD_ID')
+if OWNER_DISCORD_ID:
+    OWNER_DISCORD_ID=int(OWNER_DISCORD_ID)
+
 logger = logging.getLogger('discord_bot')
+
 
 class System(commands.Cog):
     def __init__(self, bot, db_manager):
@@ -19,17 +28,37 @@ class System(commands.Cog):
         self.temperature = 0
         self.alert_sent = False
         self.start_time = time.time()
-        
+
         self.stats_monitor.start()
         self.daily_cleanup.start()
-        
-    
+
     def cog_unload(self):
         self.stats_monitor.cancel()
         self.daily_cleanup.cancel()
 
+
+    def set_telegram_enabled(self, enabled: bool):
+        with self.db.get_connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO settings (key, value)
+                VALUES ('telegram_enabled', ?)
+                ON CONFLICT(key) DO UPDATE SET value = excluded.value
+                """,
+                ("true" if enabled else "false",)
+            )
+            conn.commit()
+
+    def is_telegram_enabled(self) -> bool:
+        with self.db.get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                "SELECT value FROM settings WHERE key = 'telegram_enabled'"
+            )
+            row = cur.fetchone()
+            return row[0].lower() == "true" if row else True
+
     def get_local_ip(self):
-        """Pobiera lokalny adres IP."""
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         try:
             s.connect(('8.8.8.8', 80))
@@ -44,17 +73,13 @@ class System(commands.Cog):
     async def stats_monitor(self):
         self.cpu_usage = psutil.cpu_percent(interval=None)
         self.memory_percent = psutil.virtual_memory().percent
-        
 
         try:
             func = getattr(psutil, "sensors_temperatures", None)
             if func:
                 data = func()
                 key = 'cpu_thermal' if 'cpu_thermal' in data else list(data.keys())[0] if data else None
-                if key:
-                    self.temperature = data[key][0].current
-                else:
-                    self.temperature = "N/A"
+                self.temperature = data[key][0].current if key else "N/A"
             else:
                 self.temperature = "N/A"
         except Exception as e:
@@ -62,12 +87,18 @@ class System(commands.Cog):
 
         if isinstance(self.temperature, (int, float)):
             if self.temperature > 70 and not self.alert_sent:
-                await send_system_alert(self.bot, f"**Alert Malinki!** Wysoka temperatura: {self.temperature}°C. Zwalniam monitoring.")
+                await send_system_alert(
+                    self.bot,
+                    f"**Alert Malinki!** Wysoka temperatura: {self.temperature}°C. Zwalniam monitoring."
+                )
                 self.alert_sent = True
-                self.stats_monitor.change_interval(seconds=180.0)  #type: ignore
-            
+                self.stats_monitor.change_interval(seconds=180.0)  # type: ignore
+
             elif self.temperature < 60 and self.alert_sent:
-                await send_system_alert(self.bot, "**System schłodzony.** Powrót do normy.")
+                await send_system_alert(
+                    self.bot,
+                    "**System schłodzony.** Powrót do normy."
+                )
                 self.alert_sent = False
                 self.stats_monitor.change_interval(seconds=30.0)
 
@@ -79,28 +110,40 @@ class System(commands.Cog):
             last_ip = row[0] if row else None
 
             if current_ip != last_ip:
-                cursor.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", 
-                               ('last_local_ip', current_ip))
+                cursor.execute(
+                    "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+                    ('last_local_ip', current_ip)
+                )
                 conn.commit()
-                await send_system_alert(self.bot, f"**Zmiana IP!** Nowy adres lokalny: `{current_ip}`")
+                await send_system_alert(
+                    self.bot,
+                    f"**Zmiana IP!** Nowy adres lokalny: `{current_ip}`"
+                )
 
     @commands.hybrid_command(name="stats", description="Pokazuje statystyki malinki")
     async def stats(self, ctx):
-        """Pokazuje statystki malinki"""
         uptime_seconds = int(time.time() - self.start_time)
         days, rem = divmod(uptime_seconds, 86400)
         hours, rem = divmod(rem, 3600)
         minutes, _ = divmod(rem, 60)
-        uptime_str = f"{days}d {hours}h {minutes}m"
 
-        embed = discord.Embed(title="Statystyki systemowe", color=discord.Color.blue())
+        embed = discord.Embed(
+            title="Statystyki systemowe",
+            color=discord.Color.blue()
+        )
         embed.add_field(name="CPU", value=f"{self.cpu_usage}%", inline=True)
         embed.add_field(name="RAM", value=f"{self.memory_percent}%", inline=True)
-        
-        temp_val = f"{round(self.temperature, 1)}°C" if isinstance(self.temperature, (int, float)) else self.temperature
+
+        temp_val = (
+            f"{round(self.temperature, 1)}°C"
+            if isinstance(self.temperature, (int, float))
+            else self.temperature
+        )
         embed.add_field(name="Temperatura", value=temp_val, inline=True)
-                
-        embed.set_footer(text=f"Uptime: {uptime_str} | Odświeżanie: {self.stats_monitor.seconds}s")
+
+        embed.set_footer(
+            text=f"Uptime: {days}d {hours}h {minutes}m | Odświeżanie: {self.stats_monitor.seconds}s"
+        )
         await ctx.send(embed=embed)
 
     @tasks.loop(hours=24)
@@ -108,9 +151,46 @@ class System(commands.Cog):
         loop = asyncio.get_event_loop()
         stats = await loop.run_in_executor(None, self.db.cleanup_old_data, 7)
         if stats:
-            logger.info(f"Usunięto {stats['weather']} wpisów pogodowych. \n Usunięto {stats['reminders']}")
+            logger.info(
+                f"Usunięto {stats['weather']} wpisów pogodowych.\n"
+                f"Usunięto {stats['reminders']}"
+            )
 
-    
+    @commands.hybrid_command(
+        name="telegram_wylacz",
+        description="Wyłącza powiadomienia Telegram"
+    )
+    async def telegram_wylacz(self, ctx):
+        if ctx.author.id != OWNER_DISCORD_ID:
+            await ctx.reply("Nie masz uprawnień do tej komendy.")
+            return
+
+        self.set_telegram_enabled(False)
+        await ctx.reply("Powiadomienia Telegram **wyłączone**.")
+
+    @commands.hybrid_command(
+        name="telegram_wlacz",
+        description="Włącza powiadomienia Telegram"
+    )
+    async def telegram_wlacz(self, ctx):
+        if ctx.author.id != OWNER_DISCORD_ID:
+            await ctx.reply("Nie masz uprawnień do tej komendy.")
+            return
+
+        self.set_telegram_enabled(True)
+        await ctx.reply("Powiadomienia Telegram **włączone**.")
+
+    @commands.hybrid_command(
+        name="telegram_status",
+        description="Pokazuje status powiadomień Telegram"
+    )
+    async def telegram_status(self, ctx):
+        if ctx.author.id != OWNER_DISCORD_ID:
+            await ctx.reply("Nie masz uprawnień do tej komendy.")
+            return
+        status = "włączone " if self.is_telegram_enabled() else "wyłączone"
+        await ctx.reply(f"Powiadomienia Telegram są aktualnie **{status}**.")
+
 
 async def setup(bot):
     await bot.add_cog(System(bot, bot.db))
